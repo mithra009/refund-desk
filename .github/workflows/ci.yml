@@ -1,0 +1,61 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:                       # no network, no model calls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12 && uv pip install -e ".[dev,risk]"
+      - run: uv run pytest -q
+
+  postgres:                    # Postgres + pgvector + AsyncPostgresSaver paths
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env: {POSTGRES_PASSWORD: ci, POSTGRES_DB: refund_desk}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-retries 20
+    env:
+      E2E_PG_URL: postgresql://postgres:ci@localhost:5432/refund_desk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12 && uv pip install -e ".[dev,risk]"
+      - run: uv run pytest services/refund_desk/tests/e2e -q
+
+  eval-gate:                   # 25 cases x 3 runs on config E; fails on any unsafe action or an accuracy drop
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: tests
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env: {POSTGRES_PASSWORD: ci, POSTGRES_DB: refund_desk}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:ci@localhost:5432/refund_desk
+      PYTHONPATH: .:services/refund_desk:services
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_TRACING: "true"
+      REFUND_DESK_GIT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12 && uv pip install -e ".[dev,risk]"
+      - run: uv run python -m evals.generate
+      - run: uv run python -c "from backend_sim.db import get_db; get_db()"      # create schema
+      - name: start the risk service (shares the database with the eval runner)
+        run: |
+          nohup uv run uvicorn risk_service.serve:app --port 8001 > risk.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:8001/.well-known/agent-card.json && break; sleep 1; done
+      - run: uv run python -m evals.smoke

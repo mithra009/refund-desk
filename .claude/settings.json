@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv --version)",
+      "Bash(docker --version)",
+      "Bash(pip list *)",
+      "Bash(rtk grep *)",
+      "Bash(rtk ls *)",
+      "Bash(rtk wc *)",
+      "Bash(sed -i 's/\\(\"approve_partial\", 3500 - 2000, \\\\[\"R3\", \"R5\"\\\\]\\)/\\(\"approve_partial\", 3500, [\"R3\", \"R5\"]\\)/' evals/tests/test_oracle.py)",
+      "Bash(.venv/Scripts/python.exe -m pytest evals/tests -q)",
+      "Bash(PYTHONPATH=\".;services/refund_desk\" .venv/Scripts/python.exe -)"
+    ]
+  }
+}

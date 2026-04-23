@@ -1,0 +1,3 @@
+# 2. The critic sees less than the drafter
+
+Status: accepted. The critic receives the draft decision, the retrieved clauses and the evidence; not how the drafter arrived at it. It answers four yes/no checks and cannot be persuaded by an argument it never saw. Cheap code checks (clause ids exist, amount <= order total, evidence ids exist) run first and cost no critic tokens. Revisions are capped at 2, after which the case goes to the guard with the issues open, which forces escalation. Rejected: "ask the model if it is sure". The critic is switchable (`REFUND_DESK_CRITIC_ENABLED`) because its value is an empirical question: ablation config C vs E.

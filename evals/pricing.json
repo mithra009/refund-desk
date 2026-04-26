@@ -1,0 +1,9 @@
+{
+  "_comment": "Blended USD per 1M tokens per configuration. Fill from your own price list; zeros mean cost_usd is reported as 0 and the ablation table says so. Nothing here is a real price.",
+  "default": 0.0,
+  "A": 0.0,
+  "B": 0.0,
+  "C": 0.0,
+  "D": 0.0,
+  "E": 0.0
+}

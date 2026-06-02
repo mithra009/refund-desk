@@ -68,6 +68,8 @@ def outputs_from_state(state: dict, latency_s: float, config: str) -> dict:
         "clauses_retrieved": [c.id for c in state["policy_hits"]] if state.get("policy_hits") else None,
         "evidence": [{"id": e["id"], "finding": e["finding"]} for e in evidence],
         "tools_called": tools, "plan": [p.question for p in state.get("plan", [])],
+        "guard_reasons": state["guard"].reasons if state.get("guard") else [],
+        "risk_level": state["risk"].level if state.get("risk") else None,
         "steps": (budget.steps + budget.tool_calls) if budget else 0,
         "reply": state.get("reply"), "tokens": tokens, "latency_s": round(latency_s, 3),
         "cost_usd": round(tokens / 1e6 * price_per_mtok(config), 6),

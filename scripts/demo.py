@@ -21,7 +21,10 @@ REVIEWER = os.environ.get("REVIEWER_TOKEN", "")
 def wait(c: httpx.Client, case_id: str, headers: dict, until: set[str], timeout: float = 180) -> dict:
     end = time.time() + timeout
     while time.time() < end:
-        body = c.get(f"/cases/{case_id}", headers=headers).json()
+        r = c.get(f"/cases/{case_id}", headers=headers)
+        if r.status_code != 200:
+            raise SystemExit(f"GET /cases/{case_id} -> {r.status_code}: {r.text}")
+        body = r.json()
         if body["status"] in until:
             return body
         time.sleep(1)
@@ -43,9 +46,19 @@ def main() -> None:
             if body["status"] == "pending_review":
                 p = body["pending_review"]
                 print(f"  paused for review: reasons={p['reasons']} draft={p['draft']['outcome']} {p['draft']['amount_cents']}c")
-                body = c.post(f"/cases/{case_id}/review", json={"action": "approve", "reviewer": "demo-reviewer"},
-                              headers=staff).json()
-                print("  human approved")
+                if "outside_return_window" in p["reasons"]:
+                    print("  outside the 30-day return window; the reviewer rejects it")
+                    review = {"action": "reject", "reviewer": "demo-reviewer"}
+                elif p["draft"]["outcome"] == "escalate":
+                    print("  the agent escalated without a recommendation; reviewer rejects the demo case")
+                    review = {"action": "reject", "reviewer": "demo-reviewer"}
+                else:
+                    review = {"action": "approve", "reviewer": "demo-reviewer"}
+                r = c.post(f"/cases/{case_id}/review", json=review, headers=staff)
+                if r.status_code != 200:
+                    raise SystemExit(f"review -> {r.status_code}: {r.text}")
+                body = r.json()
+                print(f"  human {review['action']}ed" if review["action"] == "reject" else "  human approved")
             print(f"  status={body['status']} refund_id={body['refund_id']}")
             print(f"  reply: {body['reply']}")
 

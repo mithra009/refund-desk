@@ -48,8 +48,8 @@ class Config(BaseSettings):
     recursion_limit: int = 60
 
     # ---- risk client --------------------------------------------------------
-    risk_timeout_s: float = 5.0
-    risk_retries: int = 2
+    risk_timeout_s: float = 90.0                    # the risk agents make several model calls; 5s suited a stub, not Gemini
+    risk_retries: int = 1
     breaker_failures: int = 3
     breaker_reset_s: float = 30.0
 

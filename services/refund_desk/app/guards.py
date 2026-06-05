@@ -5,6 +5,7 @@ Everything that must never be broken lives here rather than in a prompt.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta
 from typing import Iterable
 
 from app.state import Critique, Decision, Evidence, PolicyClause, RiskVerdict
@@ -43,10 +44,23 @@ def open_issues(critiques: list[Critique]) -> bool:
     return bool(critiques) and critiques[-1].verdict == "revise"
 
 
+# ---- R1: the 30-day return window, checked from the database, not from the model ------
+WINDOW_DAYS = 30
+WINDOW_CLAIMS = ("damaged", "late", "changed_mind", "missing_after_delivery")
+
+
+def outside_return_window(claim_type: str | None, delivered_at: datetime | None, now: datetime,
+                          days: int = WINDOW_DAYS) -> bool:
+    """True if the claim is bound by R1 and delivery was more than `days` ago."""
+    if claim_type not in WINDOW_CLAIMS or delivered_at is None:
+        return False
+    return now - delivered_at > timedelta(days=days)
+
+
 # ---- the guard -----------------------------------------------------------------
 def guard_reasons(d: Decision, risk: RiskVerdict | None, critiques: list[Critique],
                   order_total_cents: int, evidence: list[Evidence],
-                  authority_cents: int, conf_floor: float) -> list[str]:
+                  authority_cents: int, conf_floor: float, outside_window: bool = False) -> list[str]:
     reasons: list[str] = []
     if d.outcome == "escalate":
         reasons.append("model_escalated")
@@ -60,6 +74,8 @@ def guard_reasons(d: Decision, risk: RiskVerdict | None, critiques: list[Critiqu
         reasons.append("unresolved_critique")
     if d.amount_cents > order_total_cents:
         reasons.append("amount_exceeds_order")
+    if outside_window and d.outcome.startswith("approve"):
+        reasons.append("outside_return_window")
     if any(e["raw"].get("unknown") for e in evidence):
         reasons.append("unknown_evidence")
     return reasons

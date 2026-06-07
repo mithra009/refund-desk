@@ -61,8 +61,10 @@ def reply(state: CaseState) -> dict:
 
     context = {"decision": kind, "refund_amount": money(amount) if amount is not None else None,
                "claim_summary": state["intake"].summary if state.get("intake") else None}
-    if kind == "denied" and final is not None:
-        context["reason"] = "; ".join(PLAIN_REASON[c] for c in final.clauses if c in PLAIN_REASON) or None
+    if kind == "denied":
+        reasons = [PLAIN_REASON[c] for c in (final.clauses if final else []) if c in PLAIN_REASON]
+        # Never let the model invent a reason: give it one, or say there is none to give.
+        context["reason"] = "; ".join(reasons) or "our team reviewed the request and could not approve it"
 
     tokens, text, feedback = 0, None, ""
     for _ in range(2):

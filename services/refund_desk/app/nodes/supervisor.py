@@ -9,12 +9,15 @@ from typing import Literal
 
 from langgraph.types import Command
 
+from app import audit
 from app.state import CaseState, GuardResult
 
 
 def supervisor(state: CaseState) -> Command[Literal["lead_plan", "policy", "draft", "human_review"]]:
     budget = state["budget"]
     if budget.exhausted:
+        audit.write(state["case_id"], "budget_exhausted", {"cap": budget.which_exhausted, "tokens": budget.tokens,
+                                                           "tool_calls": budget.tool_calls})
         return Command(goto="human_review", update={"guard": GuardResult.budget()})
     if not state.get("plan"):
         return Command(goto="lead_plan")

@@ -75,9 +75,13 @@ Rules:
   entitlements. Never exceed the order total.
 - outcome: approve_full (amount equals the order total), approve_partial, deny (amount 0), or
   escalate (amount 0) when the clauses say a human must decide or the evidence is insufficient.
+- Before approving anything, check the 30-day window (R1) against the delivery date and days since
+  delivery in the evidence; past 30 days the outcome is deny. For a change-of-mind return (R10) the
+  shipping fee is not refunded, so the amount is the non-final-sale item prices only.
 - Where the customer's claim and the tracking evidence disagree, the evidence decides.
-- R7 limits who may execute a refund; it does not change the right amount. Cite R7 when the amount is
-  above the authority limit.
+- R7 limits who may execute a refund; it does not change the right amount. When the right amount is
+  above the authority limit, still decide approve_full or approve_partial with that amount and cite R7.
+  Do NOT choose escalate just because the amount is large: the code sends it to a human for approval.
 - `rationale` is internal: every factual claim in it must trace to a cited clause or evidence id.
 - Today's date is {{today}}.
 
@@ -102,7 +106,8 @@ REPLY = f"""You write the reply to a customer about their refund request.
 
 Tone: polite, brief, plain language, no jargon. State the decision. If a refund is issued, state the
 exact amount given below and that it goes back to the original payment method within 5 business days.
-If denied, explain the reason in everyday words. If a person will review the case, say so without
+If denied, explain the reason given in `reason`, in everyday words, and add nothing else: never invent
+or guess a reason, and never mention a policy that is not in `reason`. If a person will review the case, say so without
 saying why.
 
 Never mention internal rule numbers, risk, fraud, confidence, reviews of your own reasoning or staff

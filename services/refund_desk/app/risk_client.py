@@ -14,7 +14,7 @@ import time
 import uuid
 
 import httpx
-from a2a.client import ClientCallContext, ClientConfig, create_client
+from a2a.client import A2ACardResolver, ClientCallContext, ClientConfig, create_client
 from a2a.types import a2a_pb2
 
 from app.config import cfg
@@ -48,6 +48,15 @@ class CircuitBreaker:
         self.failures += 1
         if self.failures >= self.threshold or self.state == "half_open":
             self.opened_at = self.clock()
+
+
+def pin_card_url(card, base_url: str):
+    """Make the client connect to the URL we were configured with, not the address the card
+    advertises. A card served inside Docker names an internal host (risk-service) that a client
+    on the host machine cannot resolve."""
+    for iface in card.supported_interfaces:
+        iface.url = base_url.rstrip("/")
+    return card
 
 
 class RiskUnavailable(Exception):
@@ -101,7 +110,8 @@ class RiskClient:
         owns = self._http is None
         http = self._http or httpx.AsyncClient(timeout=self.timeout_s)
         try:
-            client = await create_client(self.base_url, client_config=ClientConfig(httpx_client=http, streaming=False))
+            card = pin_card_url(await A2ACardResolver(http, self.base_url).get_agent_card(), self.base_url)
+            client = await create_client(card, client_config=ClientConfig(httpx_client=http, streaming=False))
             msg = a2a_pb2.Message(message_id=uuid.uuid4().hex, role=a2a_pb2.ROLE_USER,
                                   parts=[a2a_pb2.Part(text=request_json)])
             ctx = ClientCallContext(service_parameters=headers, timeout=self.timeout_s)

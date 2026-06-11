@@ -112,6 +112,16 @@ class Budget(BaseModel):
     started_at: float = Field(default_factory=time.time)
 
     @property
+    def which_exhausted(self) -> str | None:
+        if self.tokens >= cfg.max_tokens_per_case:
+            return "tokens"
+        if self.tool_calls >= cfg.max_tool_calls_per_case:
+            return "tool_calls"
+        if time.time() - self.started_at >= cfg.max_wall_clock_s:
+            return "wall_clock"
+        return None
+
+    @property
     def exhausted(self) -> bool:
         return (self.tokens >= cfg.max_tokens_per_case
                 or self.tool_calls >= cfg.max_tool_calls_per_case

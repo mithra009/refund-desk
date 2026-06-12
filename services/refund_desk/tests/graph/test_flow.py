@@ -250,3 +250,12 @@ async def test_all_workers_failing_redispatches_once_then_escalates(isolated, gr
     assert any(e["raw"].get("unknown") for e in out["evidence"])
     assert "unknown_evidence" in out["__interrupt__"][0].value["reasons"]
     assert refund_rows(isolated) == []
+
+
+async def test_budget_exhaustion_is_audited_with_the_cap_that_tripped(isolated, graph, low_risk, monkeypatch):
+    monkeypatch.setattr(cfg, "max_tool_calls_per_case", 1)
+    f = facts()
+    seed_fact_sheet(isolated, f)
+    await run(graph, f)
+    row = isolated.one("SELECT payload FROM audit_log WHERE event = 'budget_exhausted'")
+    assert isolated.parse_json(row["payload"])["cap"] == "tool_calls"

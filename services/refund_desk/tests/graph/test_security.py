@@ -100,3 +100,13 @@ async def test_workers_cannot_change_anything(isolated, graph, low_risk):
     await run(graph, f, decision_fn=lambda m: Decision(outcome="deny", amount_cents=0, clauses=["R1"],
                                                        evidence_refs=[], rationale="x", confidence=0.9))
     assert isolated.one("SELECT COUNT(*) n FROM refunds")["n"] == before
+
+
+async def test_model_that_ignores_the_30_day_window_is_stopped_by_the_guard(isolated, graph, low_risk):
+    """Regression from a real run: the model approved a change-of-mind return delivered 38 days ago."""
+    from backend_sim.factsheet import EventFact
+    f = facts(claim_type="changed_mind", events=[EventFact(days_ago=38, code="DELIVERED")])
+    seed_fact_sheet(isolated, f)
+    out = await run(graph, f, decision_fn=obedient_drafter(2900))
+    assert refund_rows(isolated) == []
+    assert "outside_return_window" in out["__interrupt__"][0].value["reasons"]

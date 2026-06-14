@@ -136,3 +136,24 @@ def test_reviewer_can_decide_when_nothing_was_drafted():
     e = final_decision_after_review(None, "edit", "approve_partial", 1500, 3000)
     assert e.outcome == "approve_partial" and e.amount_cents == 1500
     assert final_decision_after_review(None, "approve", None, None, 3000) is None
+
+
+# ---- R1 window (from the database, not the model) -------------------------------
+def test_outside_return_window_boundaries():
+    from datetime import datetime, timedelta, timezone
+    from app.guards import outside_return_window
+    now = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    assert not outside_return_window("changed_mind", now - timedelta(days=30), now)
+    assert outside_return_window("changed_mind", now - timedelta(days=30, seconds=1), now)
+    assert not outside_return_window("not_delivered", now - timedelta(days=90), now)      # R3 is not window-bound
+    assert not outside_return_window("damaged", None, now)
+
+
+def test_window_only_blocks_approvals():
+    approve, deny = dec(), dec(outcome="deny", amount_cents=0)
+    assert "outside_return_window" in reasons_w(approve)
+    assert "outside_return_window" not in reasons_w(deny)
+
+
+def reasons_w(d):
+    return guard_reasons(d, LOW, [], 3000, EV, authority_cents=10_000, conf_floor=0.6, outside_window=True)
